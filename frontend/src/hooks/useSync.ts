@@ -31,10 +31,11 @@ export function useSync(roomId?: string, intervalMs = 5000) {
           setLastSync(result.timestamp)
           setSyncStatus('synced')
 
-          // Derive active message from full list (delta-only search clears it on next poll)
-          const allMsgs = useMessageStore.getState().messages
-          const roomActive = allMsgs.find(m => m.roomId === roomId && m.isActive) ?? null
-          useMessageStore.setState({ activeMessage: roomActive })
+          // Use server's declared active message directly — avoids the delta
+          // timing race where lastSync > message.lastModified
+          if ('activeMessage' in result) {
+            useMessageStore.setState({ activeMessage: result.activeMessage ?? null })
+          }
         }
       } catch {
         setSyncStatus('offline')

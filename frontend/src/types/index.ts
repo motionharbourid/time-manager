@@ -135,6 +135,7 @@ export interface SyncPayload {
   room: Room
   timestamp: number
   operatorId: string
+  activeMessage?: Message | null
 }
 
 export interface SyncDelta {

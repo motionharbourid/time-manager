@@ -89,13 +89,20 @@ function handlePull(): never
     $msgsStmt = $db->prepare('SELECT * FROM messages WHERE room_id = ? AND last_modified > ? ORDER BY created_at DESC');
     $msgsStmt->execute([$roomId, $since]);
 
+    // Always return the live active message regardless of `since` — fixes the
+    // race condition where Viewer's lastSync is newer than the message's lastModified
+    $activeMsgStmt = $db->prepare('SELECT * FROM messages WHERE room_id = ? AND is_active = 1 LIMIT 1');
+    $activeMsgStmt->execute([$roomId]);
+    $activeRow = $activeMsgStmt->fetch() ?: null;
+
     jsonResponse([
-        'roomId'    => $roomId,
-        'room'      => dbRowToRoom($room),
-        'timers'    => array_map('dbRowToTimer', $timersStmt->fetchAll()),
-        'messages'  => array_map('dbRowToMessage', $msgsStmt->fetchAll()),
-        'timestamp' => (int)(microtime(true) * 1000),
-        'operatorId' => 'server'
+        'roomId'        => $roomId,
+        'room'          => dbRowToRoom($room),
+        'timers'        => array_map('dbRowToTimer', $timersStmt->fetchAll()),
+        'messages'      => array_map('dbRowToMessage', $msgsStmt->fetchAll()),
+        'activeMessage' => $activeRow ? dbRowToMessage($activeRow) : null,
+        'timestamp'     => (int)(microtime(true) * 1000),
+        'operatorId'    => 'server'
     ]);
 }
 

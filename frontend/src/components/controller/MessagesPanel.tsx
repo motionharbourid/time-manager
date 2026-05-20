@@ -4,6 +4,7 @@ import { useMessageStore } from '@/store/useMessageStore'
 import { useConnectionStore } from '@/store/useConnectionStore'
 import { emitActivateMessage } from '@/lib/socket'
 import { getSocket } from '@/lib/socket'
+import { flushPendingSync } from '@/lib/sync'
 import type { Message } from '@/types'
 
 interface MessagesPanelProps {
@@ -35,8 +36,8 @@ export function MessagesPanel({ roomId }: MessagesPanelProps) {
       setActiveMessage(msg)
       emitActivateMessage(roomId, msg?.id ?? null)
     } else {
-      // Offline: persist isActive flag to DB + pending sync so Viewer can poll it
-      void activateMessage(roomId, msg?.id ?? null)
+      // Offline: persist to DB + immediately flush to PHP so Viewer can pull it
+      void activateMessage(roomId, msg?.id ?? null).then(() => flushPendingSync(roomId))
     }
   }
 
