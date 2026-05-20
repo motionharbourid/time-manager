@@ -1,8 +1,6 @@
 -- Time-Manager Database Schema v2.6.0
--- Run this in phpMyAdmin or: mysql -u root time_manager < schema.sql
-
-CREATE DATABASE IF NOT EXISTS `time_manager` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `time_manager`;
+-- phpMyAdmin (Hostinger): pilih database dulu di sidebar, lalu Import file ini
+-- XAMPP terminal: mysql -u root time_manager < schema.sql
 
 -- ─── Rooms ────────────────────────────────────────────────────────────────────
 
