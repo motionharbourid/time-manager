@@ -10,7 +10,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? null;
 
 if ($action === 'ping') {
-    jsonResponse(['version' => '2.6.0', 'time' => round(microtime(true) * 1000)]);
+    jsonResponse(['version' => '2.7.0', 'time' => round(microtime(true) * 1000)]);
 }
 
 match ($method) {
@@ -18,6 +18,41 @@ match ($method) {
     'POST' => handlePush(),
     default => jsonError('Method not allowed', 405)
 };
+
+// ── Auto-create room if missing (handles DB wipe / fresh deploy) ──────────────
+
+function ensureRoom(PDO $db, string $roomId): void
+{
+    $now = (int)(microtime(true) * 1000);
+    $db->prepare('
+        INSERT IGNORE INTO rooms
+            (id, name, plan, owner_id, timezone, master_clock, on_air, blackout,
+             current_timer_index, active_timer_id, logo, primary_color, background_color,
+             created_at, last_modified)
+        VALUES (?, \'My Event\', \'free\', \'auto\', \'Asia/Jakarta\', 1, 0, 0, 0, NULL, NULL,
+                \'#3b82f6\', \'#0f172a\', ?, ?)
+    ')->execute([$roomId, $now, $now]);
+}
+
+// ── Lazy schema migration for messages table ──────────────────────────────────
+
+function ensureMessagesSchema(PDO $db): void
+{
+    try {
+        $cols = $db->query('SHOW COLUMNS FROM messages')->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('is_active', $cols, true)) {
+            $db->exec('ALTER TABLE messages ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 0');
+        }
+        if (!in_array('flash', $cols, true)) {
+            $db->exec('ALTER TABLE messages ADD COLUMN flash TINYINT(1) NOT NULL DEFAULT 0');
+        }
+        if (!in_array('expires_at', $cols, true)) {
+            $db->exec('ALTER TABLE messages ADD COLUMN expires_at BIGINT NULL');
+        }
+    } catch (Throwable $_) {}
+}
+
+// ── GET — pull latest state ───────────────────────────────────────────────────
 
 function handlePull(): never
 {
@@ -27,10 +62,26 @@ function handlePull(): never
 
     $db = getDB();
 
+    // Auto-create room if it was wiped from DB — never return 404 to clients
+    try { ensureRoom($db, $roomId); } catch (Throwable $_) {}
+
     $roomStmt = $db->prepare('SELECT * FROM rooms WHERE id = ?');
     $roomStmt->execute([$roomId]);
     $room = $roomStmt->fetch();
-    if (!$room) jsonError('Room not found', 404);
+
+    // If still missing (e.g. tables don't exist), return empty payload so client
+    // can continue using local IndexedDB state
+    if (!$room) {
+        jsonResponse([
+            'roomId'     => $roomId,
+            'room'       => null,
+            'timers'     => [],
+            'messages'   => [],
+            'timestamp'  => (int)(microtime(true) * 1000),
+            'operatorId' => 'server',
+            'warning'    => 'room_not_found'
+        ]);
+    }
 
     $timersStmt = $db->prepare('SELECT * FROM timers WHERE room_id = ? AND last_modified > ? ORDER BY sort_order');
     $timersStmt->execute([$roomId, $since]);
@@ -48,20 +99,7 @@ function handlePull(): never
     ]);
 }
 
-function ensureMessagesSchema(PDO $db): void
-{
-    // Lazy migration: add columns that may be missing on older Hostinger deployments
-    $cols = $db->query('SHOW COLUMNS FROM messages')->fetchAll(PDO::FETCH_COLUMN);
-    if (!in_array('is_active', $cols, true)) {
-        $db->exec('ALTER TABLE messages ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 0');
-    }
-    if (!in_array('flash', $cols, true)) {
-        $db->exec('ALTER TABLE messages ADD COLUMN flash TINYINT(1) NOT NULL DEFAULT 0');
-    }
-    if (!in_array('expires_at', $cols, true)) {
-        $db->exec('ALTER TABLE messages ADD COLUMN expires_at BIGINT NULL');
-    }
-}
+// ── POST — push client changes ────────────────────────────────────────────────
 
 function handlePush(): never
 {
@@ -70,6 +108,8 @@ function handlePush(): never
     $roomId = $body['roomId'] ?? null;
     if (!$roomId) jsonError('roomId required');
 
+    // Ensure room exists before any FK-constrained inserts
+    try { ensureRoom($db, $roomId); } catch (Throwable $_) {}
     try { ensureMessagesSchema($db); } catch (Throwable $_) {}
 
     $accepted  = 0;
@@ -113,6 +153,8 @@ function handlePush(): never
     jsonResponse(['accepted' => $accepted, 'conflicts' => $conflicts, 'errors' => $errs]);
 }
 
+// ── SQL helpers ───────────────────────────────────────────────────────────────
+
 function upsertTimer(PDO $db, string $roomId, array $t): void
 {
     $db->prepare('
@@ -143,7 +185,10 @@ function upsertMessage(PDO $db, string $roomId, array $m): void
     $db->prepare('
         INSERT INTO messages (id, room_id, text, type, bg_color, text_color, emoji, is_active, flash, created_at, last_modified)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE text = VALUES(text), is_active = VALUES(is_active), last_modified = VALUES(last_modified)
+        ON DUPLICATE KEY UPDATE
+            text = VALUES(text), is_active = VALUES(is_active),
+            bg_color = VALUES(bg_color), text_color = VALUES(text_color),
+            flash = VALUES(flash), last_modified = VALUES(last_modified)
     ')->execute([
         $m['id'], $roomId, $m['text'] ?? '', $m['type'] ?? 'normal',
         $m['backgroundColor'] ?? '#1e293b', $m['textColor'] ?? '#ffffff',
@@ -153,17 +198,23 @@ function upsertMessage(PDO $db, string $roomId, array $m): void
     ]);
 }
 
-// Include helper functions from rooms/timers/messages
+// ── Row mappers ───────────────────────────────────────────────────────────────
+
 function dbRowToRoom(array $row): array {
     return ['id' => $row['id'], 'name' => $row['name'], 'plan' => $row['plan'],
         'timezone' => $row['timezone'], 'masterClock' => (bool)$row['master_clock'],
         'onAir' => (bool)$row['on_air'], 'blackout' => (bool)$row['blackout'],
         'activeTimerId' => $row['active_timer_id'], 'lastModified' => (int)$row['last_modified'],
-        'primaryColor' => $row['primary_color'], 'backgroundColor' => $row['background_color'], 'syncStatus' => 'synced'];
+        'primaryColor' => $row['primary_color'], 'backgroundColor' => $row['background_color'],
+        'syncStatus' => 'synced'];
 }
 
 function dbRowToTimer(array $row): array {
-    $wrapup = json_decode($row['wrapup_colors'] ?? '{}', true) ?: ['stage1' => ['threshold' => 300, 'color' => '#eab308'], 'stage2' => ['threshold' => 120, 'color' => '#f97316'], 'stage3' => ['threshold' => 0, 'color' => '#ef4444']];
+    $wrapup = json_decode($row['wrapup_colors'] ?? '{}', true) ?: [
+        'stage1' => ['threshold' => 300, 'color' => '#eab308'],
+        'stage2' => ['threshold' => 120, 'color' => '#f97316'],
+        'stage3' => ['threshold' => 0,   'color' => '#ef4444']
+    ];
     return ['id' => $row['id'], 'roomId' => $row['room_id'], 'order' => (int)$row['sort_order'],
         'title' => $row['title'], 'speaker' => $row['speaker'], 'duration' => (int)$row['duration'],
         'elapsed' => (int)$row['elapsed'], 'remaining' => (int)$row['remaining'], 'status' => $row['status'],
@@ -172,7 +223,7 @@ function dbRowToTimer(array $row): array {
         'textColor' => $row['text_color'], 'showSpeaker' => (bool)$row['show_speaker'],
         'showTitle' => (bool)$row['show_title'], 'overtimeLimit' => (int)$row['overtime_limit'],
         'startedAt' => $row['started_at'] ? (int)$row['started_at'] : null,
-        'pausedAt' => $row['paused_at'] ? (int)$row['paused_at'] : null,
+        'pausedAt'  => $row['paused_at']  ? (int)$row['paused_at']  : null,
         'lastModified' => (int)$row['last_modified'], 'syncStatus' => 'synced'];
 }
 
@@ -180,6 +231,7 @@ function dbRowToMessage(array $row): array {
     return ['id' => $row['id'], 'roomId' => $row['room_id'], 'text' => $row['text'],
         'type' => $row['type'], 'backgroundColor' => $row['bg_color'], 'textColor' => $row['text_color'],
         'emoji' => $row['emoji'], 'isActive' => (bool)$row['is_active'], 'flash' => (bool)$row['flash'],
-        'createdAt' => (int)$row['created_at'], 'expiresAt' => $row['expires_at'] ? (int)$row['expires_at'] : null,
+        'createdAt' => (int)$row['created_at'],
+        'expiresAt' => isset($row['expires_at']) && $row['expires_at'] ? (int)$row['expires_at'] : null,
         'lastModified' => (int)$row['last_modified'], 'syncStatus' => 'synced'];
 }
