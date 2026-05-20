@@ -5,43 +5,38 @@ import { useMessageStore } from '@/store/useMessageStore'
 import { useSocket } from '@/hooks/useSocket'
 import { useTimer } from '@/hooks/useTimer'
 import { formatDuration, formatClock, getTimerColor } from '@/lib/utils'
-import { connectSocket, joinRoom } from '@/lib/socket'
-import { useConnectionStore } from '@/store/useConnectionStore'
 
 export default function Viewer() {
   const { roomId } = useParams<{ roomId: string }>()
   const { timers } = useTimer(roomId)
   const { currentRoom, loadRoom } = useRoomStore()
   const { activeMessage } = useMessageStore()
-  const { mode, isOnline } = useConnectionStore()
   const [now, setNow] = useState(new Date())
   const [cursorVisible, setCursorVisible] = useState(false)
 
-  useSocket(roomId)
+  // Join as 'viewer' — no control permissions, just receives all state events
+  useSocket(roomId, 'viewer')
 
   useEffect(() => {
     if (!roomId) return
     loadRoom(roomId)
-
-    // Join socket room as viewer
-    if (mode === 'online' && isOnline) {
-      const socket = connectSocket()
-      if (socket.connected) {
-        joinRoom(roomId, 'viewer')
-      } else {
-        socket.once('connect', () => joinRoom(roomId, 'viewer'))
-      }
-    }
-
     const clockTick = setInterval(() => setNow(new Date()), 500)
     return () => clearInterval(clockTick)
-  }, [roomId, mode, isOnline]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [roomId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Hide cursor after 3s of inactivity
   const handleMouseMove = useCallback(() => {
     setCursorVisible(true)
     const t = setTimeout(() => setCursorVisible(false), 3000)
     return () => clearTimeout(t)
+  }, [])
+
+  // Tap anywhere on mobile to request fullscreen
+  const handleTap = useCallback(() => {
+    const el = document.documentElement
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().catch(() => {})
+    }
   }, [])
 
   const activeTimer = timers.find(t => t.status === 'running' || t.status === 'paused' || t.status === 'overtime')
@@ -62,7 +57,7 @@ export default function Viewer() {
 
   // Blackout screen
   if (currentRoom?.blackout) {
-    return <div className="w-screen h-screen bg-black" />
+    return <div className="w-screen h-screen bg-black" onClick={handleTap} />
   }
 
   const bgColor = currentRoom?.backgroundColor ?? '#0A0A0A'
@@ -78,6 +73,7 @@ export default function Viewer() {
         cursor: cursorVisible ? 'default' : 'none'
       }}
       onMouseMove={handleMouseMove}
+      onClick={handleTap}
     >
       {/* Ambient background glow */}
       {activeTimer && (
@@ -174,7 +170,6 @@ export default function Viewer() {
                     style={{ width: `${progress}%`, backgroundColor: timerColor }}
                   />
                 </div>
-                {/* Time markers */}
                 <div className="flex justify-between mt-2 opacity-30" style={{ color: timerColor }}>
                   <span className="text-xs font-mono">{formatDuration(activeTimer.duration)}</span>
                   <span className="text-xs font-mono">0:00</span>

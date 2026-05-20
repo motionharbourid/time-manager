@@ -114,14 +114,31 @@ export function setupSocket(httpServer: HTTPServer): SocketServer {
       }
 
       if (action === 'next' || action === 'prev') {
-        const timers = Array.from(state.timers.values()).sort((a, b) => a.order - b.order)
-        const activeIdx = timers.findIndex(t => t.status === 'running' || t.status === 'paused')
-        const nextIdx = action === 'next' ? activeIdx + 1 : activeIdx - 1
+        const timerList = Array.from(state.timers.values()).sort((a, b) => a.order - b.order)
+        const activeIdx = timerList.findIndex(t => t.status === 'running' || t.status === 'paused')
+        const targetIdx = action === 'next' ? activeIdx + 1 : activeIdx - 1
 
-        if (nextIdx >= 0 && nextIdx < timers.length) {
-          const nextTimer = timers[nextIdx]
-          setRoomState(roomId, { activeTimerId: nextTimer.id })
-          io.to(roomId).emit('timer:next', { nextTimerId: nextTimer.id })
+        if (targetIdx >= 0 && targetIdx < timerList.length) {
+          const nowMs = Date.now()
+
+          // Stop & reset the currently active timer
+          if (activeIdx >= 0) {
+            const current = timerList[activeIdx]
+            const stopped = {
+              ...current, status: 'idle' as const, elapsed: 0, remaining: current.duration,
+              startedAt: null, pausedAt: null, lastModified: nowMs
+            }
+            state.timers.set(current.id, stopped)
+            io.to(roomId).emit('timer:update', stopped)
+          }
+
+          // Start the target timer
+          const target = timerList[targetIdx]
+          const started = { ...target, status: 'running' as const, startedAt: nowMs, pausedAt: null, lastModified: nowMs }
+          state.timers.set(target.id, started)
+          state.activeTimerId = target.id
+          io.to(roomId).emit('timer:start', { timerId: target.id, startedAt: nowMs })
+          io.to(roomId).emit('timer:next', { nextTimerId: target.id })
         }
       }
     })
@@ -133,7 +150,8 @@ export function setupSocket(httpServer: HTTPServer): SocketServer {
       const state = getOrCreateRoom(roomId)
       const timer = state.timers.get(timerId)
       if (!timer) return
-      const newRemaining = timer.remaining - seconds
+      // seconds > 0 = add time, seconds < 0 = remove time (matches client nudgeTimer)
+      const newRemaining = timer.remaining + seconds
       state.timers.set(timerId, { ...timer, remaining: newRemaining, lastModified: Date.now() })
       io.to(roomId).emit('timer:update', state.timers.get(timerId)!)
     })

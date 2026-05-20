@@ -159,7 +159,8 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
     set((s) => ({
       timers: s.timers.map(t => {
         if (t.id !== id) return t
-        const newRemaining = Math.max(-t.overtimeLimit || -99999, t.remaining - seconds)
+        // seconds > 0 = add time, seconds < 0 = remove time
+        const newRemaining = t.remaining + seconds
         return { ...t, remaining: newRemaining, lastModified: nowMs() }
       })
     }))
