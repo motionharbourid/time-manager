@@ -20,7 +20,7 @@ const QUICK_MESSAGES = [
 ]
 
 export function MessagesPanel({ roomId }: MessagesPanelProps) {
-  const { messages, sendMessage, deleteMessage, setActiveMessage, activeMessage } = useMessageStore()
+  const { messages, sendMessage, deleteMessage, setActiveMessage, activateMessage, activeMessage } = useMessageStore()
   const { mode } = useConnectionStore()
   const [text, setText] = useState('')
   const [flash, setFlash] = useState(false)
@@ -31,9 +31,12 @@ export function MessagesPanel({ roomId }: MessagesPanelProps) {
   const isOnline = mode === 'online'
 
   const syncActivate = (msg: Message | null) => {
-    setActiveMessage(msg)
     if (isOnline && getSocket().connected) {
+      setActiveMessage(msg)
       emitActivateMessage(roomId, msg?.id ?? null)
+    } else {
+      // Offline: persist isActive flag to DB + pending sync so Viewer can poll it
+      void activateMessage(roomId, msg?.id ?? null)
     }
   }
 

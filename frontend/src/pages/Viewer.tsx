@@ -3,12 +3,15 @@ import { useParams } from 'react-router-dom'
 import { useRoomStore } from '@/store/useRoomStore'
 import { useMessageStore } from '@/store/useMessageStore'
 import { useTimer } from '@/hooks/useTimer'
+import { useSync } from '@/hooks/useSync'
 import { formatDuration, formatClock, getTimerColor } from '@/lib/utils'
 
 export default function Viewer() {
   const { roomId } = useParams<{ roomId: string }>()
   // viewType='viewer': joins room as viewer, receives all sync events, no control emits
   const { timers } = useTimer(roomId, 'viewer')
+  // Poll PHP API every 2s — keeps timer + message in sync without socket server
+  useSync(roomId, 2000)
   const { currentRoom, loadRoom } = useRoomStore()
   const { activeMessage } = useMessageStore()
   const [now, setNow] = useState(new Date())

@@ -128,7 +128,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       })
     }))
     const timer = get().timers.find(t => t.id === id)
-    if (timer) dbSaveTimer(timer)
+    if (timer) { dbSaveTimer(timer); dbAddPendingSync('timer', timer) }
   },
 
   pauseTimer: (id) => {
@@ -140,7 +140,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       })
     }))
     const timer = get().timers.find(t => t.id === id)
-    if (timer) dbSaveTimer(timer)
+    if (timer) { dbSaveTimer(timer); dbAddPendingSync('timer', timer) }
   },
 
   resetTimer: (id) => {
@@ -152,18 +152,31 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
       })
     }))
     const timer = get().timers.find(t => t.id === id)
-    if (timer) dbSaveTimer(timer)
+    if (timer) { dbSaveTimer(timer); dbAddPendingSync('timer', timer) }
   },
 
   nudgeTimer: (id, seconds) => {
+    const now = nowMs()
+    let nudged: Timer | undefined
     set((s) => ({
       timers: s.timers.map(t => {
         if (t.id !== id) return t
-        // seconds > 0 = add time, seconds < 0 = remove time
         const newRemaining = t.remaining + seconds
-        return { ...t, remaining: newRemaining, lastModified: nowMs() }
+        let newStartedAt = t.startedAt
+        let newElapsed = t.elapsed
+        if (t.status === 'running' && t.startedAt) {
+          // Shift startedAt so tick engine continues from nudged value
+          newElapsed = Math.max(0, t.duration - newRemaining)
+          newStartedAt = now - (newElapsed * 1000)
+        } else if (t.status === 'paused') {
+          // Adjust elapsed so resume computes correctly
+          newElapsed = Math.max(0, t.duration - newRemaining)
+        }
+        nudged = { ...t, remaining: newRemaining, elapsed: newElapsed, startedAt: newStartedAt, lastModified: now }
+        return nudged
       })
     }))
+    if (nudged) { dbSaveTimer(nudged); dbAddPendingSync('timer', nudged) }
   },
 
   nextTimer: () => {

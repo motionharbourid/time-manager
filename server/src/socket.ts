@@ -150,9 +150,15 @@ export function setupSocket(httpServer: HTTPServer): SocketServer {
       const state = getOrCreateRoom(roomId)
       const timer = state.timers.get(timerId)
       if (!timer) return
-      // seconds > 0 = add time, seconds < 0 = remove time (matches client nudgeTimer)
+      const now = Date.now()
       const newRemaining = timer.remaining + seconds
-      state.timers.set(timerId, { ...timer, remaining: newRemaining, lastModified: Date.now() })
+      // Shift startedAt so the tick engine on all clients continues from the nudged value
+      let newStartedAt = timer.startedAt
+      if (timer.status === 'running' && timer.startedAt) {
+        const newElapsed = Math.max(0, timer.duration - newRemaining)
+        newStartedAt = now - (newElapsed * 1000)
+      }
+      state.timers.set(timerId, { ...timer, remaining: newRemaining, startedAt: newStartedAt, lastModified: now })
       io.to(roomId).emit('timer:update', state.timers.get(timerId)!)
     })
 
