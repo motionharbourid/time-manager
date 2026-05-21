@@ -3,15 +3,17 @@ import { useParams } from 'react-router-dom'
 import { useTimer } from '@/hooks/useTimer'
 import { useRoomStore } from '@/store/useRoomStore'
 import { useSocket } from '@/hooks/useSocket'
+import { useSync } from '@/hooks/useSync'
 import { formatDuration } from '@/lib/utils'
 import { CheckCircle, Circle, Clock } from 'lucide-react'
 
 export default function Agenda() {
   const { roomId } = useParams<{ roomId: string }>()
-  const { timers } = useTimer(roomId)
+  const { timers } = useTimer(roomId, 'viewer')
   const { currentRoom, loadRoom } = useRoomStore()
 
   useSocket(roomId)
+  useSync(roomId, 3000)
 
   useEffect(() => {
     if (roomId) loadRoom(roomId)

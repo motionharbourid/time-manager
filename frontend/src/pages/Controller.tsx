@@ -7,6 +7,7 @@ import { useRoomStore } from '@/store/useRoomStore'
 import { useMessageStore } from '@/store/useMessageStore'
 import { useConnectionStore } from '@/store/useConnectionStore'
 import { indonesianTimezones } from '@/lib/utils'
+import { exportRoomJSON, importRoomJSON } from '@/lib/db'
 import { TopBar } from '@/components/controller/TopBar'
 import { TimerList } from '@/components/controller/TimerList'
 import { MessagesPanel } from '@/components/controller/MessagesPanel'
@@ -65,7 +66,6 @@ export default function Controller() {
         if (mode === 'offline') {
           await createRoom('New Event', 'Asia/Jakarta')
         } else {
-          // Online: room not found locally — show error (user should join via /join/:roomId)
           setRoomNotFound(true)
           return
         }
@@ -74,6 +74,56 @@ export default function Controller() {
     }
     initRoom()
   }, [roomId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keyboard shortcuts: Space = play/pause, ← → = nudge -10s/+10s, N = next, P = prev
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (!activeTimer) return
+      if (e.key === ' ') {
+        e.preventDefault()
+        activeTimer.status === 'running' ? pause(activeTimer.id) : start(activeTimer.id)
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        nudge(activeTimer.id, -10)
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        nudge(activeTimer.id, 10)
+      } else if (e.key === 'n' || e.key === 'N') {
+        next()
+      } else if (e.key === 'p' || e.key === 'P') {
+        prev()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [activeTimer, start, pause, nudge, next, prev]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleExport = async () => {
+    if (!currentRoom) return
+    const json = await exportRoomJSON(currentRoom.id)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${currentRoom.name.replace(/\s+/g, '-')}-rundown.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImport = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      const text = await file.text()
+      await importRoomJSON(text)
+      if (roomId) await loadMessages(roomId)
+    }
+    input.click()
+  }
 
   if (roomNotFound) {
     return (
@@ -169,11 +219,11 @@ export default function Controller() {
 
         <div className="w-px h-4 bg-tm-border mx-1" />
 
-        <button className="btn-ghost text-[11px]" title="Export rundown">
+        <button onClick={() => void handleExport()} className="btn-ghost text-[11px]" title="Export rundown as JSON">
           <Download className="w-3 h-3" />
           Export
         </button>
-        <button className="btn-ghost text-[11px]" title="Import rundown">
+        <button onClick={handleImport} className="btn-ghost text-[11px]" title="Import rundown from JSON">
           <Upload className="w-3 h-3" />
           Import
         </button>

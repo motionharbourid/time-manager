@@ -203,6 +203,7 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
 
   startTicking: () => {
     if (get().tickHandle) return
+    let prevTimers = get().timers
     const handle = setInterval(() => {
       const now = nowMs()
       set((s) => ({
@@ -214,6 +215,24 @@ export const useTimerStore = create<TimerStore>((set, get) => ({
           return { ...t, elapsed, remaining, status }
         })
       }))
+      const curr = get().timers
+      for (const timer of curr) {
+        const prev = prevTimers.find(t => t.id === timer.id)
+        if (!prev) continue
+        // Auto-advance when trigger !== 'manual' and timer just finished
+        if (timer.status === 'finished' && prev.status !== 'finished' && timer.trigger !== 'manual') {
+          get().nextTimer()
+          break
+        }
+        // Fire chime when remaining just crossed chimeAt threshold
+        if (
+          timer.status === 'running' && timer.chime !== 'none' &&
+          timer.chimeAt > 0 && prev.remaining > timer.chimeAt && timer.remaining <= timer.chimeAt
+        ) {
+          import('@/lib/chime').then(({ playChime }) => playChime(timer.chime as 'bell' | 'beep' | 'ding' | 'none' | 'custom'))
+        }
+      }
+      prevTimers = curr
     }, 250)
     set({ tickHandle: handle })
   },

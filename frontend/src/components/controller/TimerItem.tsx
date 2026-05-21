@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Play, Pause, RotateCcw, Trash2, ChevronDown, ChevronUp, Clock } from 'lucide-react'
+import { GripVertical, Play, Pause, RotateCcw, Trash2, ChevronDown, ChevronUp, Clock, Bell, SkipForward } from 'lucide-react'
 import { formatDuration, getTimerColor, parseDuration } from '@/lib/utils'
+import { playChime } from '@/lib/chime'
 import type { Timer } from '@/types'
 
 interface TimerItemProps {
@@ -232,6 +233,59 @@ export function TimerItem({ timer, index, isActive, onStart, onPause, onReset, o
                   })}
                   className="input-premium w-full py-1.5 text-xs"
                 />
+              </div>
+              {/* Chime */}
+              <div>
+                <label className="text-[10px] text-tm-subtle uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                  <Bell className="w-2.5 h-2.5 text-accent-cyan" />
+                  Chime
+                </label>
+                <div className="flex gap-1">
+                  <select
+                    value={timer.chime}
+                    onChange={(e) => onUpdate(timer.id, { chime: e.target.value as Timer['chime'] })}
+                    className="input-premium flex-1 py-1.5 text-xs"
+                  >
+                    <option value="none">None</option>
+                    <option value="bell">Bell</option>
+                    <option value="beep">Beep</option>
+                    <option value="ding">Ding</option>
+                  </select>
+                  {timer.chime !== 'none' && (
+                    <button
+                      onClick={() => playChime(timer.chime as 'bell' | 'beep' | 'ding')}
+                      className="px-2 py-1 text-xs bg-accent-cyan/10 border border-accent-cyan/30 rounded-lg text-accent-cyan hover:bg-accent-cyan/20 transition-all"
+                      title="Preview chime"
+                    >▶</button>
+                  )}
+                </div>
+              </div>
+              {/* Chime threshold */}
+              {timer.chime !== 'none' && (
+                <div>
+                  <label className="text-[10px] text-tm-subtle uppercase tracking-wider block mb-1.5">Chime at (secs)</label>
+                  <input
+                    type="number"
+                    value={timer.chimeAt}
+                    onChange={(e) => onUpdate(timer.id, { chimeAt: parseInt(e.target.value) || 60 })}
+                    className="input-premium w-full py-1.5 text-xs"
+                  />
+                </div>
+              )}
+              {/* Auto-advance trigger */}
+              <div>
+                <label className="text-[10px] text-tm-subtle uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                  <SkipForward className="w-2.5 h-2.5 text-timer-green" />
+                  After this timer
+                </label>
+                <select
+                  value={timer.trigger}
+                  onChange={(e) => onUpdate(timer.id, { trigger: e.target.value as Timer['trigger'] })}
+                  className="input-premium w-full py-1.5 text-xs"
+                >
+                  <option value="manual">Manual (stay)</option>
+                  <option value="auto">Auto-advance</option>
+                </select>
               </div>
             </div>
           )}

@@ -6,6 +6,8 @@ import Controller from '@/pages/Controller'
 import Viewer from '@/pages/Viewer'
 import Agenda from '@/pages/Agenda'
 import Moderator from '@/pages/Moderator'
+import Operator from '@/pages/Operator'
+import Focus from '@/pages/Focus'
 import Join from '@/pages/Join'
 
 function AppProviders({ children }: { children: React.ReactNode }) {
@@ -44,6 +46,8 @@ export default function App() {
           <Route path="/viewer/:roomId" element={<Viewer />} />
           <Route path="/agenda/:roomId" element={<Agenda />} />
           <Route path="/moderator/:roomId" element={<Moderator />} />
+          <Route path="/operator/:roomId" element={<Operator />} />
+          <Route path="/focus/:roomId" element={<Focus />} />
           <Route path="/join/:roomId" element={<Join />} />
           {/* Redirect old paths */}
           <Route path="/room/:roomId" element={<Navigate to="/controller/:roomId" replace />} />

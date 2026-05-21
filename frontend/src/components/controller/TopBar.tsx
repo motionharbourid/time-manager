@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import {
-  Timer, ExternalLink, Copy, Check, Settings, Eye,
+  Timer, ExternalLink, Copy, Check, Settings,
   Play, Pause, RotateCcw, SkipForward, SkipBack,
-  Radio, EyeOff, Minus, Plus
+  Radio, EyeOff, Link2, X, Monitor, Users, List, Maximize2
 } from 'lucide-react'
 import { ConnectionStatus } from '@/components/shared/ConnectionStatus'
 import { useRoomStore } from '@/store/useRoomStore'
@@ -30,6 +30,8 @@ export function TopBar({
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState(room.name)
   const [copied, setCopied] = useState(false)
+  const [linksOpen, setLinksOpen] = useState(false)
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
 
   const isRunning = activeTimer?.status === 'running'
   const isOvertime = activeTimer?.status === 'overtime'
@@ -46,10 +48,23 @@ export function TopBar({
     setEditingName(false)
   }
 
-  const viewerUrl = `${window.location.origin}/viewer/${room.id}`
-  const agendaUrl = `${window.location.origin}/agenda/${room.id}`
+  const origin = window.location.origin
+  const outputLinks = [
+    { key: 'viewer',    label: 'Viewer',    desc: 'Main display output',         url: `${origin}/viewer/${room.id}`,    Icon: Monitor },
+    { key: 'moderator', label: 'Moderator', desc: 'Moderator control + rundown', url: `${origin}/moderator/${room.id}`, Icon: Users },
+    { key: 'operator',  label: 'Operator',  desc: 'Backstage operator controls', url: `${origin}/operator/${room.id}`,  Icon: Timer },
+    { key: 'agenda',    label: 'Agenda',    desc: 'Session list for audience',   url: `${origin}/agenda/${room.id}`,    Icon: List },
+    { key: 'focus',     label: 'Focus',     desc: 'Minimal fullscreen display',  url: `${origin}/focus/${room.id}`,     Icon: Maximize2 },
+  ]
+
+  const copyUrl = (url: string) => {
+    navigator.clipboard.writeText(url)
+    setCopiedUrl(url)
+    setTimeout(() => setCopiedUrl(null), 2000)
+  }
 
   return (
+    <>
     <header className="h-14 bg-tm-darker border-b border-tm-border flex items-center gap-0 flex-shrink-0 overflow-hidden">
 
       {/* ── LEFT ZONE: Logo + Room ───────────────────────────────────── */}
@@ -233,19 +248,17 @@ export function TopBar({
         {/* Divider */}
         <div className="w-px h-5 bg-tm-border flex-shrink-0" />
 
-        {/* Viewer link */}
-        <a
-          href={viewerUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+        {/* Output links */}
+        <button
+          onClick={() => setLinksOpen(true)}
           className="hidden lg:flex items-center gap-1 text-[11px] text-tm-subtle hover:text-tm-muted
             bg-tm-surface border border-tm-border hover:border-tm-border-2 rounded-lg px-2.5 py-1.5
             transition-all flex-shrink-0"
+          title="Output links"
         >
-          <Eye className="w-3 h-3" />
-          Viewer
-          <ExternalLink className="w-2.5 h-2.5" />
-        </a>
+          <Link2 className="w-3 h-3" />
+          Links
+        </button>
 
         {/* Connection status */}
         <ConnectionStatus />
@@ -260,5 +273,74 @@ export function TopBar({
         </button>
       </div>
     </header>
+
+    {/* Output links modal */}
+    {linksOpen && (
+      <div
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        onClick={() => setLinksOpen(false)}
+      >
+        <div
+          className="bg-tm-surface border border-tm-border rounded-2xl p-6 w-full max-w-md shadow-2xl"
+          style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-accent-cyan/10 border border-accent-cyan/20 flex items-center justify-center">
+                <Link2 className="w-4 h-4 text-accent-cyan" />
+              </div>
+              <div>
+                <h2 className="font-bold text-sm text-tm-text">Output Links</h2>
+                <p className="text-[10px] text-tm-subtle font-mono">{room.id}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setLinksOpen(false)}
+              className="p-1.5 text-tm-subtle hover:text-tm-muted hover:bg-tm-surface-2 rounded-lg transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {outputLinks.map(({ key, label, desc, url, Icon }) => (
+              <div key={key} className="flex items-center gap-3 p-3 rounded-xl bg-tm-surface-2 border border-tm-border hover:border-tm-border-2 transition-all group">
+                <div className="w-7 h-7 rounded-lg bg-tm-surface-3 border border-tm-border flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-3.5 h-3.5 text-tm-muted" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-tm-text">{label}</p>
+                  <p className="text-[10px] text-tm-subtle">{desc}</p>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => copyUrl(url)}
+                    className="p-1.5 rounded-lg text-tm-subtle hover:text-tm-muted hover:bg-tm-surface-3 transition-all"
+                    title="Copy link"
+                  >
+                    {copiedUrl === url ? <Check className="w-3 h-3 text-timer-green" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-lg text-tm-subtle hover:text-tm-muted hover:bg-tm-surface-3 transition-all"
+                    title="Open in new tab"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-[10px] text-tm-subtle text-center mt-4">
+            Share these links so others can view or control the session.
+          </p>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
