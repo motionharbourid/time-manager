@@ -10,8 +10,8 @@ import { indonesianTimezones } from '@/lib/utils'
 import { exportRoomJSON, importRoomJSON } from '@/lib/db'
 import { TopBar } from '@/components/controller/TopBar'
 import { TimerList } from '@/components/controller/TimerList'
+import { TimerDisplay } from '@/components/controller/TimerDisplay'
 import { MessagesPanel } from '@/components/controller/MessagesPanel'
-import { LivePreview } from '@/components/controller/LivePreview'
 
 export default function Controller() {
   const { roomId } = useParams<{ roomId: string }>()
@@ -23,6 +23,9 @@ export default function Controller() {
   const [settingsName, setSettingsName] = useState('')
   const [settingsTimezone, setSettingsTimezone] = useState('Asia/Jakarta')
   const [settingsMasterClock, setSettingsMasterClock] = useState(true)
+  const [settingsBgColor, setSettingsBgColor] = useState('#0A0A0A')
+  const [settingsPrimaryColor, setSettingsPrimaryColor] = useState('#3b82f6')
+  const [settingsPassword, setSettingsPassword] = useState('')
   const settingsNameRef = useRef<HTMLInputElement>(null)
   const [roomNotFound, setRoomNotFound] = useState(false)
 
@@ -34,17 +37,14 @@ export default function Controller() {
 
   useSync(roomId)
 
-  const nextTimer = (() => {
-    if (!activeTimer) return timers[0]
-    const idx = timers.findIndex(t => t.id === activeTimer.id)
-    return timers[idx + 1]
-  })()
-
   useEffect(() => {
     if (settingsOpen && currentRoom) {
       setSettingsName(currentRoom.name)
       setSettingsTimezone(currentRoom.timezone)
       setSettingsMasterClock(currentRoom.masterClock)
+      setSettingsBgColor(currentRoom.backgroundColor || '#0A0A0A')
+      setSettingsPrimaryColor(currentRoom.primaryColor || '#3b82f6')
+      setSettingsPassword(currentRoom.password || '')
       setTimeout(() => settingsNameRef.current?.select(), 50)
     }
   }, [settingsOpen]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -53,7 +53,10 @@ export default function Controller() {
     await updateRoom({
       name: settingsName.trim() || currentRoom!.name,
       timezone: settingsTimezone,
-      masterClock: settingsMasterClock
+      masterClock: settingsMasterClock,
+      backgroundColor: settingsBgColor,
+      primaryColor: settingsPrimaryColor,
+      password: settingsPassword || null
     })
     setSettingsOpen(false)
   }
@@ -75,7 +78,7 @@ export default function Controller() {
     initRoom()
   }, [roomId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keyboard shortcuts: Space = play/pause, ← → = nudge -10s/+10s, N = next, P = prev
+  // Keyboard shortcuts: Space=play/pause, ←/→=nudge, N=next, P=prev
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -84,16 +87,11 @@ export default function Controller() {
         e.preventDefault()
         activeTimer.status === 'running' ? pause(activeTimer.id) : start(activeTimer.id)
       } else if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        nudge(activeTimer.id, -10)
+        e.preventDefault(); nudge(activeTimer.id, -10)
       } else if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        nudge(activeTimer.id, 10)
-      } else if (e.key === 'n' || e.key === 'N') {
-        next()
-      } else if (e.key === 'p' || e.key === 'P') {
-        prev()
-      }
+        e.preventDefault(); nudge(activeTimer.id, 10)
+      } else if (e.key === 'n' || e.key === 'N') { next() }
+      else if (e.key === 'p' || e.key === 'P') { prev() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -159,29 +157,24 @@ export default function Controller() {
   return (
     <div className="w-screen h-screen bg-tm-darker flex flex-col overflow-hidden font-display">
 
-      {/* ── Top bar (transport + room info) ─────────────────────────── */}
+      {/* ── Top bar ──────────────────────────────────────────────── */}
       <TopBar
         room={currentRoom}
-        activeTimer={activeTimer}
         onSettingsOpen={() => setSettingsOpen(true)}
-        onStart={start}
-        onPause={pause}
-        onReset={reset}
-        onNudge={nudge}
-        onNext={next}
-        onPrev={prev}
       />
 
-      {/* ── 3-column main layout ─────────────────────────────────────── */}
+      {/* ── 3-column main layout ─────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* LEFT: Rundown */}
-        <div className="border-r border-tm-border overflow-hidden flex flex-col flex-shrink-0"
-          style={{ width: '30%', minWidth: '260px', maxWidth: '380px' }}>
+        {/* LEFT: Rundown / Timer list */}
+        <div
+          className="border-r border-tm-border overflow-hidden flex flex-col flex-shrink-0"
+          style={{ width: '28%', minWidth: '240px', maxWidth: '340px' }}
+        >
           <TimerList
             timers={timers}
             roomId={currentRoom.id}
-            onAdd={() => addTimer(currentRoom.id, { title: `Sesi ${timers.length + 1}` })}
+            onAdd={() => addTimer(currentRoom.id, { title: `Session ${timers.length + 1}` })}
             onStart={start}
             onPause={pause}
             onReset={reset}
@@ -191,46 +184,54 @@ export default function Controller() {
           />
         </div>
 
-        {/* CENTER: Live Preview */}
+        {/* CENTER: Timer display + controls */}
         <div className="flex-1 overflow-hidden border-r border-tm-border">
-          <LivePreview
+          <TimerDisplay
             room={currentRoom}
             activeTimer={activeTimer}
-            nextTimer={nextTimer}
+            timers={timers}
+            onStart={start}
+            onPause={pause}
+            onReset={reset}
+            onNudge={nudge}
+            onNext={next}
+            onPrev={prev}
           />
         </div>
 
         {/* RIGHT: Messages */}
-        <div className="overflow-hidden flex flex-col flex-shrink-0"
-          style={{ width: '30%', minWidth: '240px', maxWidth: '360px' }}>
+        <div
+          className="overflow-hidden flex flex-col flex-shrink-0"
+          style={{ width: '28%', minWidth: '240px', maxWidth: '340px' }}
+        >
           <MessagesPanel roomId={currentRoom.id} />
         </div>
       </div>
 
-      {/* ── Bottom bar ──────────────────────────────────────────────── */}
-      <div className="h-10 bg-tm-darker border-t border-tm-border flex items-center px-4 gap-2 flex-shrink-0">
+      {/* ── Bottom bar ────────────────────────────────────────────── */}
+      <div className="h-9 bg-tm-darker border-t border-tm-border flex items-center px-4 gap-1.5 flex-shrink-0">
         <button
-          onClick={() => addTimer(currentRoom.id, { title: `Sesi ${timers.length + 1}` })}
+          onClick={() => addTimer(currentRoom.id, { title: `Session ${timers.length + 1}` })}
           className="btn-ghost text-[11px]"
         >
           <Plus className="w-3 h-3" />
-          Tambah Sesi
+          Add Timer
         </button>
 
-        <div className="w-px h-4 bg-tm-border mx-1" />
+        <div className="w-px h-3.5 bg-tm-border mx-1" />
 
-        <button onClick={() => void handleExport()} className="btn-ghost text-[11px]" title="Export rundown as JSON">
+        <button onClick={() => void handleExport()} className="btn-ghost text-[11px]" title="Export as JSON">
           <Download className="w-3 h-3" />
           Export
         </button>
-        <button onClick={handleImport} className="btn-ghost text-[11px]" title="Import rundown from JSON">
+        <button onClick={handleImport} className="btn-ghost text-[11px]" title="Import from JSON">
           <Upload className="w-3 h-3" />
           Import
         </button>
 
         <div className="flex-1" />
 
-        <span className="text-[10px] text-tm-subtle font-mono">{currentRoom.id}</span>
+        <span className="text-[10px] text-tm-subtle font-mono hidden sm:inline">{currentRoom.id}</span>
 
         <button
           onClick={() => setSettingsOpen(true)}
@@ -241,14 +242,14 @@ export default function Controller() {
         </button>
       </div>
 
-      {/* ── Settings modal ──────────────────────────────────────────── */}
+      {/* ── Settings modal ────────────────────────────────────────── */}
       {settingsOpen && (
         <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => setSettingsOpen(false)}
         >
           <div
-            className="bg-tm-surface border border-tm-border rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            className="bg-tm-surface border border-tm-border rounded-2xl p-6 w-full max-w-md shadow-2xl overflow-y-auto max-h-[90vh]"
             style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -263,6 +264,7 @@ export default function Controller() {
             </div>
 
             <div className="space-y-4">
+              {/* Room name */}
               <div>
                 <label className="text-xs text-tm-muted block mb-1.5 font-medium">Room Name</label>
                 <input
@@ -273,6 +275,8 @@ export default function Controller() {
                   className="input-premium w-full"
                 />
               </div>
+
+              {/* Timezone */}
               <div>
                 <label className="text-xs text-tm-muted block mb-1.5 font-medium">Timezone</label>
                 <select
@@ -285,21 +289,78 @@ export default function Controller() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-center justify-between py-1">
+
+              {/* Colors row */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-sm text-tm-text font-medium">Master Clock</span>
-                  <p className="text-xs text-tm-subtle mt-0.5">Tampilkan jam di layar presenter</p>
+                  <label className="text-xs text-tm-muted block mb-1.5 font-medium">Background Color</label>
+                  <div className="flex items-center gap-2 input-premium">
+                    <input
+                      type="color"
+                      value={settingsBgColor}
+                      onChange={(e) => setSettingsBgColor(e.target.value)}
+                      className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent flex-shrink-0"
+                    />
+                    <span className="text-xs font-mono text-tm-muted flex-1">{settingsBgColor}</span>
+                  </div>
                 </div>
-                <button
-                  onClick={() => setSettingsMasterClock(v => !v)}
-                  className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0 ${
-                    settingsMasterClock ? 'bg-accent-cyan' : 'bg-tm-surface-3'
-                  }`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
-                    settingsMasterClock ? 'left-6' : 'left-1'
-                  }`} />
-                </button>
+                <div>
+                  <label className="text-xs text-tm-muted block mb-1.5 font-medium">Accent Color</label>
+                  <div className="flex items-center gap-2 input-premium">
+                    <input
+                      type="color"
+                      value={settingsPrimaryColor}
+                      onChange={(e) => setSettingsPrimaryColor(e.target.value)}
+                      className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent flex-shrink-0"
+                    />
+                    <span className="text-xs font-mono text-tm-muted flex-1">{settingsPrimaryColor}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="text-xs text-tm-muted block mb-1.5 font-medium">
+                  Room Password <span className="text-tm-subtle font-normal">(optional)</span>
+                </label>
+                <input
+                  type="password"
+                  value={settingsPassword}
+                  onChange={(e) => setSettingsPassword(e.target.value)}
+                  placeholder="Leave blank for no password"
+                  className="input-premium w-full"
+                />
+              </div>
+
+              {/* Toggles */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm text-tm-text font-medium">Master Clock</span>
+                    <p className="text-xs text-tm-subtle mt-0.5">Show clock on viewer screen</p>
+                  </div>
+                  <button
+                    onClick={() => setSettingsMasterClock(v => !v)}
+                    className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0 ${
+                      settingsMasterClock ? 'bg-accent-cyan' : 'bg-tm-surface-3'
+                    }`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                      settingsMasterClock ? 'left-6' : 'left-1'
+                    }`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Keyboard shortcuts reference */}
+              <div className="bg-tm-surface-2 border border-tm-border rounded-xl p-3">
+                <p className="text-[10px] text-tm-subtle font-semibold uppercase tracking-wider mb-2">Keyboard Shortcuts</p>
+                <div className="grid grid-cols-2 gap-1 text-[10px] text-tm-subtle">
+                  <span><span className="font-mono text-tm-muted">Space</span> — Play / Pause</span>
+                  <span><span className="font-mono text-tm-muted">N</span> — Next timer</span>
+                  <span><span className="font-mono text-tm-muted">←→</span> — Nudge ±10s</span>
+                  <span><span className="font-mono text-tm-muted">P</span> — Prev timer</span>
+                </div>
               </div>
             </div>
 
@@ -308,14 +369,14 @@ export default function Controller() {
                 onClick={() => setSettingsOpen(false)}
                 className="px-4 py-2 text-sm text-tm-muted hover:text-tm-text transition-colors"
               >
-                Batal
+                Cancel
               </button>
               <button
                 onClick={() => void handleSettingsSave()}
                 className="px-5 py-2 text-sm bg-accent-cyan/10 hover:bg-accent-cyan/20 border border-accent-cyan/30
                   hover:border-accent-cyan/50 rounded-xl text-accent-cyan font-semibold transition-all"
               >
-                Simpan
+                Save
               </button>
             </div>
           </div>

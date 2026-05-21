@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Timer, Wifi, WifiOff, Download, ChevronRight, Star, Zap, Globe, Monitor, Smartphone } from 'lucide-react'
+import { Timer, Wifi, WifiOff, ChevronRight, Monitor, Users, List, Maximize2, LayoutDashboard } from 'lucide-react'
 import { useRoomStore } from '@/store/useRoomStore'
 import { useConnectionStore } from '@/store/useConnectionStore'
 
@@ -11,7 +11,7 @@ export default function Landing() {
   const [loading, setLoading] = useState(false)
   const [joinId, setJoinId] = useState('')
 
-  const handleTryFree = async () => {
+  const handleCreate = async () => {
     setLoading(true)
     try {
       const room = await createRoom('My Event', 'Asia/Jakarta')
@@ -30,99 +30,107 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-tm-darker text-white font-display overflow-x-hidden">
-      {/* Nav */}
-      <nav className="border-b border-tm-border/50 sticky top-0 z-50 bg-tm-darker/90 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-              <Timer className="w-5 h-5 text-white" />
+
+      {/* ── Nav ─────────────────────────────────────────────────── */}
+      <nav className="border-b border-tm-border sticky top-0 z-50 bg-tm-darker/95 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #00D4FF 0%, #A855F7 100%)' }}>
+              <Timer className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-lg tracking-tight">Time-Manager</span>
-            <span className="hidden sm:inline text-xs text-slate-500 ml-1">v2.6.0</span>
+            <span className="font-bold text-sm tracking-tight text-tm-text">Time-Manager</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => { setMode(mode === 'online' ? 'offline' : 'online') }}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-all ${
+              onClick={() => setMode(mode === 'online' ? 'offline' : 'online')}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all ${
                 mode === 'offline'
-                  ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
-                  : 'border-green-500/50 text-green-400 bg-green-500/10'
+                  ? 'border-timer-yellow/30 text-timer-yellow bg-timer-yellow/8'
+                  : 'border-timer-green/30 text-timer-green bg-timer-green/8'
               }`}
             >
               {mode === 'offline' ? <WifiOff className="w-3 h-3" /> : <Wifi className="w-3 h-3" />}
-              {mode === 'offline' ? 'Offline Mode' : 'Online Mode'}
+              {mode === 'offline' ? 'Offline' : 'Online'}
             </button>
             <button
-              onClick={handleTryFree}
+              onClick={handleCreate}
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
+                bg-accent-cyan/10 hover:bg-accent-cyan/20 border border-accent-cyan/30 hover:border-accent-cyan/50
+                text-accent-cyan transition-all disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Try for Free'}
+              {loading ? 'Creating…' : 'New Room'}
             </button>
           </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="max-w-7xl mx-auto px-4 pt-20 pb-16 text-center">
-        <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-full px-4 py-1.5 text-blue-400 text-sm mb-6">
-          <Zap className="w-3.5 h-3.5" />
-          100% Offline Capable — No internet required
-        </div>
-        <h1 className="text-5xl sm:text-7xl font-black tracking-tight mb-6 leading-tight">
-          Perfect Timing<br />
-          <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
-            for Every Event
+      {/* ── Hero ─────────────────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-5 pt-20 pb-16 text-center">
+        <h1 className="text-5xl sm:text-6xl font-black tracking-tight mb-5 leading-none">
+          Professional<br />
+          <span style={{ background: 'linear-gradient(90deg, #00D4FF, #A855F7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            countdown timer
           </span>
         </h1>
-        <p className="text-xl text-slate-400 max-w-2xl mx-auto mb-10">
-          Professional countdown timer & rundown manager. Control from backstage,
-          display anywhere. Works online & offline. Untuk event Indonesia & dunia.
+        <p className="text-base text-tm-muted max-w-xl mx-auto mb-10 leading-relaxed">
+          Control from backstage, display anywhere. Runs online &amp; offline.
+          Built for events, conferences, and live productions.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
           <button
-            onClick={handleTryFree}
+            onClick={handleCreate}
             disabled={loading}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg px-8 py-4 rounded-xl transition-all shadow-lg shadow-blue-600/25 disabled:opacity-60"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 font-bold text-sm px-6 py-3 rounded-xl
+              bg-accent-cyan/10 hover:bg-accent-cyan/18 border border-accent-cyan/40 hover:border-accent-cyan/60
+              text-accent-cyan transition-all shadow-lg shadow-accent-cyan/10 disabled:opacity-50"
           >
-            <Timer className="w-5 h-5" />
-            {loading ? 'Membuat Room...' : 'Mulai Gratis — Generate Room'}
-            <ChevronRight className="w-5 h-5" />
+            <Timer className="w-4 h-4" />
+            {loading ? 'Creating room…' : 'Create Room — Free'}
+            <ChevronRight className="w-4 h-4" />
           </button>
           <button
             onClick={() => setMode('offline')}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 border border-tm-border hover:border-slate-500 text-slate-300 font-semibold px-6 py-4 rounded-xl transition-all"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 text-sm border border-tm-border
+              hover:border-tm-border-2 text-tm-muted hover:text-tm-text px-6 py-3 rounded-xl transition-all"
           >
             <WifiOff className="w-4 h-4" />
-            Work Offline
+            Use Offline
           </button>
         </div>
 
         {/* Join existing room */}
-        <form onSubmit={handleJoin} className="flex items-center gap-2 max-w-sm mx-auto">
+        <form onSubmit={handleJoin} className="flex items-center gap-2 max-w-xs mx-auto">
           <input
             type="text"
             value={joinId}
             onChange={(e) => setJoinId(e.target.value)}
-            placeholder="Join room: TM-XXXXXXXX"
-            className="flex-1 bg-tm-surface border border-tm-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 font-mono uppercase"
+            placeholder="Room code: TM-XXXXXXXX"
+            className="flex-1 bg-tm-surface border border-tm-border rounded-xl px-4 py-2.5 text-xs
+              text-white placeholder:text-tm-subtle focus:outline-none focus:border-tm-border-2 font-mono uppercase"
           />
-          <button type="submit" className="bg-tm-surface border border-tm-border hover:border-slate-500 text-slate-300 px-4 py-2.5 rounded-lg text-sm transition-all">
+          <button
+            type="submit"
+            className="bg-tm-surface border border-tm-border hover:border-tm-border-2 text-tm-muted
+              hover:text-tm-text px-4 py-2.5 rounded-xl text-xs transition-all font-medium"
+          >
             Join
           </button>
         </form>
 
         {/* Recent rooms */}
         {recentRooms.length > 0 && (
-          <div className="mt-6 max-w-sm mx-auto">
-            <p className="text-xs text-slate-500 mb-2">Recent rooms:</p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {recentRooms.slice(0, 3).map(r => (
+          <div className="mt-5 max-w-xs mx-auto">
+            <p className="text-[10px] text-tm-subtle mb-2 uppercase tracking-wider">Recent</p>
+            <div className="flex flex-wrap gap-1.5 justify-center">
+              {recentRooms.slice(0, 4).map(r => (
                 <button
                   key={r.id}
                   onClick={() => navigate(`/controller/${r.id}`)}
-                  className="text-xs bg-tm-surface border border-tm-border hover:border-slate-500 rounded-lg px-3 py-1.5 text-slate-400 font-mono transition-all"
+                  className="text-[10px] bg-tm-surface border border-tm-border hover:border-tm-border-2
+                    rounded-lg px-3 py-1.5 text-tm-subtle hover:text-tm-muted font-mono transition-all"
                 >
                   {r.id}
                 </button>
@@ -132,114 +140,67 @@ export default function Landing() {
         )}
       </section>
 
-      {/* Feature grid */}
-      <section className="max-w-7xl mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-center mb-12">Semua yang Anda Butuhkan</h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {features.map((f) => (
-            <div key={f.title} className="bg-tm-surface border border-tm-border rounded-xl p-6 hover:border-slate-600 transition-all">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 text-xl ${f.iconBg}`}>
-                {f.icon}
+      {/* ── Output views ─────────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-5 pb-16">
+        <p className="text-[10px] text-tm-subtle uppercase tracking-widest text-center mb-6">Output Views</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {VIEWS.map(v => (
+            <div key={v.name} className="bg-tm-surface border border-tm-border rounded-xl p-4 text-center hover:border-tm-border-2 transition-all">
+              <div className="w-8 h-8 rounded-lg bg-tm-surface-2 border border-tm-border flex items-center justify-center mx-auto mb-3">
+                <v.Icon className="w-4 h-4 text-tm-muted" />
               </div>
-              <h3 className="font-semibold mb-1">{f.title}</h3>
-              <p className="text-sm text-slate-400">{f.desc}</p>
+              <p className="text-xs font-semibold text-tm-text mb-1">{v.name}</p>
+              <p className="text-[10px] text-tm-subtle leading-relaxed">{v.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Platform support */}
-      <section className="max-w-7xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-3xl font-bold mb-4">Berjalan di Semua Platform</h2>
-        <p className="text-slate-400 mb-10">Web Browser · Windows · macOS · Linux · Android · iOS</p>
-        <div className="flex flex-wrap justify-center gap-4">
-          {platforms.map(p => (
-            <div key={p.name} className="flex items-center gap-2 bg-tm-surface border border-tm-border rounded-lg px-4 py-3">
-              {p.icon}
-              <span className="text-sm font-medium">{p.name}</span>
+      {/* ── Features ─────────────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-5 pb-16">
+        <p className="text-[10px] text-tm-subtle uppercase tracking-widest text-center mb-6">Features</p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {FEATURES.map(f => (
+            <div key={f.title} className="bg-tm-surface border border-tm-border rounded-xl p-5 hover:border-tm-border-2 transition-all">
+              <p className="text-sm font-semibold text-tm-text mb-1">{f.title}</p>
+              <p className="text-xs text-tm-subtle leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Pricing */}
-      <section className="max-w-5xl mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-center mb-12">Harga Transparan</h2>
-        <div className="grid sm:grid-cols-3 gap-6">
-          {plans.map(p => (
-            <div key={p.name} className={`rounded-2xl border p-6 flex flex-col ${p.featured ? 'border-blue-500 bg-blue-500/5' : 'border-tm-border bg-tm-surface'}`}>
-              {p.featured && <div className="text-xs font-bold text-blue-400 bg-blue-500/20 rounded-full px-3 py-1 w-fit mb-3">MOST POPULAR</div>}
-              <h3 className="text-xl font-bold">{p.name}</h3>
-              <div className="mt-2 mb-4">
-                <span className="text-3xl font-black">{p.price}</span>
-                {p.period && <span className="text-slate-400 text-sm">/{p.period}</span>}
-              </div>
-              <ul className="space-y-2 mb-6 flex-1">
-                {p.features.map(f => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-slate-300">
-                    <span className="text-green-400">✓</span>{f}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={handleTryFree}
-                className={`w-full py-2.5 rounded-lg font-semibold text-sm transition-all ${
-                  p.featured ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'border border-tm-border hover:border-slate-500 text-slate-300'
-                }`}
-              >
-                {p.cta}
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-tm-border/50 py-10 text-center text-slate-500 text-sm">
+      {/* ── Footer ───────────────────────────────────────────────── */}
+      <footer className="border-t border-tm-border py-8 text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <Timer className="w-4 h-4 text-blue-400" />
-          <span className="font-bold text-white">Time-Manager</span>
-          <span className="text-xs">v2.6.0</span>
+          <div className="w-5 h-5 rounded-md flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #00D4FF 0%, #A855F7 100%)' }}>
+            <Timer className="w-3 h-3 text-white" />
+          </div>
+          <span className="text-xs font-bold text-tm-muted">Time-Manager</span>
         </div>
-        <p>Perfect timing for every event. Built for Indonesia & the world.</p>
+        <p className="text-[10px] text-tm-subtle">Professional countdown timer for events.</p>
       </footer>
     </div>
   )
 }
 
-const features = [
-  { title: 'Remote Controller', desc: 'Kendalikan semua timer dari backstage, terhubung ke semua layar secara real-time.', icon: '🖥️', iconBg: 'bg-blue-500/20' },
-  { title: '100% Offline-First', desc: 'Bekerja tanpa internet sama sekali. Local server via WiFi untuk multi-device.', icon: '📡', iconBg: 'bg-green-500/20' },
-  { title: 'Drag & Drop Rundown', desc: 'Susun sesi event dengan drag & drop. Auto-trigger timer berikutnya.', icon: '📋', iconBg: 'bg-violet-500/20' },
-  { title: 'Custom Output Designer', desc: 'Desain layar viewer bebas dengan drag & drop. Tersedia di semua plan.', icon: '🎨', iconBg: 'bg-orange-500/20' },
-  { title: 'Live Messages', desc: 'Kirim pesan, flash text, lower third ke layar presenter secara instan.', icon: '💬', iconBg: 'bg-pink-500/20' },
-  { title: 'Multi-Platform Build', desc: 'Export sebagai .exe, .dmg, .apk, .ipa, atau deploy ke Hostinger.', icon: '📦', iconBg: 'bg-cyan-500/20' },
-  { title: 'Analytics & Log', desc: 'Export log event ke PDF/CSV. Analitik rundown lengkap per sesi.', icon: '📊', iconBg: 'bg-yellow-500/20' },
-  { title: 'Auto Backup', desc: 'Auto backup JSON setiap 30 detik. Import/export kapan saja.', icon: '💾', iconBg: 'bg-emerald-500/20' },
-  { title: 'Indonesia Support', desc: 'WIB/WITA/WIT, bahasa Indonesia, cocok untuk venue Bandung, Jakarta & seluruh Indonesia.', icon: '🇮🇩', iconBg: 'bg-red-500/20' }
+const VIEWS = [
+  { name: 'Controller', desc: 'Full production control interface', Icon: LayoutDashboard },
+  { name: 'Viewer', desc: 'Fullscreen countdown for screens', Icon: Monitor },
+  { name: 'Moderator', desc: 'Large display with rundown sidebar', Icon: Users },
+  { name: 'Operator', desc: 'Simplified backstage controls', Icon: Timer },
+  { name: 'Agenda', desc: 'Session list for audience', Icon: List },
+  { name: 'Focus', desc: 'Minimal confidence monitor', Icon: Maximize2 },
 ]
 
-const platforms = [
-  { name: 'Web Browser', icon: <Globe className="w-4 h-4 text-blue-400" /> },
-  { name: 'Windows .exe', icon: <Monitor className="w-4 h-4 text-slate-400" /> },
-  { name: 'macOS .dmg', icon: <Monitor className="w-4 h-4 text-slate-400" /> },
-  { name: 'Linux AppImage', icon: <Monitor className="w-4 h-4 text-slate-400" /> },
-  { name: 'Android .apk', icon: <Smartphone className="w-4 h-4 text-green-400" /> },
-  { name: 'iOS .ipa', icon: <Smartphone className="w-4 h-4 text-slate-400" /> },
-  { name: 'PWA Install', icon: <Download className="w-4 h-4 text-violet-400" /> }
-]
-
-const plans = [
-  {
-    name: 'Free', price: 'Rp 0', period: undefined, featured: false, cta: 'Mulai Gratis',
-    features: ['10 room aktif', 'Unlimited timers', 'Messages panel', 'Offline mode', 'PWA install', 'Custom Output Designer', '3 output views']
-  },
-  {
-    name: 'Pro', price: 'Rp 99K', period: 'bulan', featured: true, cta: 'Coba Pro',
-    features: ['Unlimited rooms', 'Custom branding', 'Password protect', 'Analytics export', 'Voice announcement', 'Priority support', 'All output views']
-  },
-  {
-    name: 'Premium', price: 'Rp 199K', period: 'bulan', featured: false, cta: 'Hubungi Kami',
-    features: ['Semua Pro+', 'Multi-operator', 'NDI output', 'API access', 'White-label', 'Dedicated server', 'SLA 99.9%']
-  }
+const FEATURES = [
+  { title: 'Drag & Drop Rundown', desc: 'Reorder sessions with drag and drop. Auto-advance to next timer on finish.' },
+  { title: 'Live Messages', desc: 'Send flash text and messages to presenter screens instantly.' },
+  { title: 'Chime Alerts', desc: 'Audio cues (bell, beep, ding) at configurable time thresholds.' },
+  { title: 'ON AIR / Blackout', desc: 'Instantly show or hide output with one click.' },
+  { title: 'Offline-First', desc: 'Works without internet. All data stored locally in IndexedDB.' },
+  { title: 'PHP Sync', desc: 'Multi-device sync via REST API — no socket server required.' },
+  { title: 'Wrapup Colors', desc: 'Automatic color changes as timer counts down to zero.' },
+  { title: 'Export / Import', desc: 'Save and load rundowns as JSON. Import via file picker.' },
+  { title: 'Keyboard Shortcuts', desc: 'Space to play/pause, arrow keys to nudge, N/P to navigate.' },
 ]

@@ -1,12 +1,58 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Timer, Monitor, Eye, ArrowLeft, RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import { Timer, Monitor, Users, ArrowLeft, RefreshCw, Wifi, WifiOff, List, Maximize2, LayoutDashboard } from 'lucide-react'
 import { connectSocket, joinRoom, getSocket } from '@/lib/socket'
 import { useConnectionStore } from '@/store/useConnectionStore'
 import { useRoomStore } from '@/store/useRoomStore'
-import { useMessageStore } from '@/store/useMessageStore'
 
-type JoinState = 'connecting' | 'found' | 'not_found' | 'offline'
+type JoinState = 'connecting' | 'found' | 'not_found'
+
+const ROLES = [
+  {
+    key: 'controller',
+    label: 'Controller',
+    desc: 'Full control — edit timers, send messages, manage rundown',
+    Icon: LayoutDashboard,
+    color: 'accent-cyan'
+  },
+  {
+    key: 'viewer',
+    label: 'Viewer',
+    desc: 'Fullscreen display output for presenter screens',
+    Icon: Monitor,
+    color: 'timer-green'
+  },
+  {
+    key: 'moderator',
+    label: 'Moderator',
+    desc: 'Large countdown with rundown sidebar and playback controls',
+    Icon: Users,
+    color: 'accent-purple'
+  },
+  {
+    key: 'operator',
+    label: 'Operator',
+    desc: 'Simplified backstage controls for technical operators',
+    Icon: Timer,
+    color: 'timer-yellow'
+  },
+  {
+    key: 'agenda',
+    label: 'Agenda',
+    desc: 'Session list view for audience members',
+    Icon: List,
+    color: 'timer-orange'
+  },
+  {
+    key: 'focus',
+    label: 'Focus',
+    desc: 'Minimal fullscreen countdown for confidence monitors',
+    Icon: Maximize2,
+    color: 'tm-muted'
+  },
+] as const
+
+type RoleKey = typeof ROLES[number]['key']
 
 export default function Join() {
   const { roomId } = useParams<{ roomId: string }>()
@@ -22,7 +68,6 @@ export default function Join() {
     if (!roomId) { navigate('/'); return }
 
     const run = async () => {
-      // 1. Try local IndexedDB first (instant)
       const localRoom = await loadRoom(roomId)
       if (localRoom) {
         setRoomName(localRoom.name)
@@ -30,7 +75,6 @@ export default function Join() {
         return
       }
 
-      // 2. Not found locally — try socket
       if (!isEffectivelyOnline) {
         setJoinState('not_found')
         return
@@ -38,10 +82,9 @@ export default function Join() {
 
       setJoinState('connecting')
       const socket = connectSocket()
-
       let timer: ReturnType<typeof setTimeout>
 
-      const handleState = (payload: { room?: { name?: string }; roomId?: string }) => {
+      const handleState = (payload: { room?: { name?: string } }) => {
         clearTimeout(timer)
         setRoomName(payload.room?.name ?? roomId)
         setJoinState('found')
@@ -62,7 +105,6 @@ export default function Join() {
 
       doRequest()
 
-      // Timeout after 5 seconds
       timer = setTimeout(() => {
         socket.off('room:state', handleState)
         setJoinState('not_found')
@@ -72,23 +114,20 @@ export default function Join() {
     run()
   }, [roomId, isEffectivelyOnline]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleJoinAs = (role: 'controller' | 'viewer') => {
+  const handleJoinAs = (role: RoleKey) => {
     if (!roomId) return
-    if (role === 'controller') {
-      navigate(`/controller/${roomId}`)
-    } else {
-      navigate(`/viewer/${roomId}`)
+    switch (role) {
+      case 'controller': navigate(`/controller/${roomId}`); break
+      case 'viewer':     navigate(`/viewer/${roomId}`); break
+      case 'moderator':  navigate(`/moderator/${roomId}`); break
+      case 'operator':   navigate(`/operator/${roomId}`); break
+      case 'agenda':     navigate(`/agenda/${roomId}`); break
+      case 'focus':      navigate(`/focus/${roomId}`); break
     }
-  }
-
-  const retry = () => {
-    setJoinState('connecting')
-    window.location.reload()
   }
 
   return (
     <div className="min-h-screen bg-tm-darker flex flex-col items-center justify-center p-4">
-      {/* Back */}
       <button
         onClick={() => navigate('/')}
         className="absolute top-6 left-6 flex items-center gap-1.5 text-tm-subtle hover:text-tm-muted transition-colors text-sm"
@@ -97,28 +136,29 @@ export default function Join() {
         Back
       </button>
 
-      {/* Card */}
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
             style={{ background: 'linear-gradient(135deg, #00D4FF 0%, #A855F7 100%)' }}>
             <Timer className="w-5 h-5 text-white" />
           </div>
           <span className="font-bold text-lg text-tm-text">Time-Manager</span>
         </div>
 
-        <div className="bg-tm-surface border border-tm-border rounded-2xl p-8"
-          style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
+        <div
+          className="bg-tm-surface border border-tm-border rounded-2xl p-7"
+          style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}
+        >
+          <p className="text-[10px] text-tm-subtle text-center uppercase tracking-widest mb-1">Room Code</p>
+          <p className="text-2xl font-black font-mono text-center text-tm-text mb-1 tracking-wider">{roomId}</p>
+          {roomName && (
+            <p className="text-sm text-tm-muted text-center mb-5">{roomName}</p>
+          )}
 
-          <p className="text-xs text-tm-subtle text-center mb-1 uppercase tracking-wider">Room Code</p>
-          <p className="text-2xl font-black font-mono text-center text-tm-text mb-6 tracking-wider">
-            {roomId}
-          </p>
-
-          {/* State: Connecting */}
+          {/* Connecting */}
           {joinState === 'connecting' && (
-            <div className="text-center py-6">
+            <div className="text-center py-8">
               <div className="w-8 h-8 border-2 border-accent-cyan/50 border-t-accent-cyan rounded-full animate-spin mx-auto mb-4" />
               <p className="text-sm text-tm-muted">Looking for room…</p>
               <p className="text-xs text-tm-subtle mt-1">
@@ -127,59 +167,34 @@ export default function Join() {
             </div>
           )}
 
-          {/* State: Found — role selection */}
+          {/* Found — role selection */}
           {joinState === 'found' && (
             <div>
-              {roomName && (
-                <p className="text-center text-sm text-tm-muted mb-6">
-                  <span className="text-tm-text font-semibold">{roomName}</span>
-                </p>
-              )}
-
-              <p className="text-xs text-tm-subtle text-center mb-4 uppercase tracking-wider">Join as</p>
-
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                {/* Controller */}
-                <button
-                  onClick={() => handleJoinAs('controller')}
-                  className="group flex flex-col items-center gap-3 p-5 bg-tm-surface-2 hover:bg-accent-cyan/5
-                    border border-tm-border hover:border-accent-cyan/40 rounded-xl transition-all"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-accent-cyan/10 group-hover:bg-accent-cyan/20
-                    border border-accent-cyan/20 group-hover:border-accent-cyan/40 flex items-center justify-center transition-all">
-                    <Monitor className="w-5 h-5 text-accent-cyan" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-tm-text">Controller</p>
-                    <p className="text-xs text-tm-subtle mt-0.5">Full control</p>
-                  </div>
-                </button>
-
-                {/* Viewer */}
-                <button
-                  onClick={() => handleJoinAs('viewer')}
-                  className="group flex flex-col items-center gap-3 p-5 bg-tm-surface-2 hover:bg-accent-purple/5
-                    border border-tm-border hover:border-accent-purple/40 rounded-xl transition-all"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-accent-purple/10 group-hover:bg-accent-purple/20
-                    border border-accent-purple/20 group-hover:border-accent-purple/40 flex items-center justify-center transition-all">
-                    <Eye className="w-5 h-5 text-accent-purple" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-tm-text">Viewer</p>
-                    <p className="text-xs text-tm-subtle mt-0.5">Display only</p>
-                  </div>
-                </button>
+              <p className="text-[10px] text-tm-subtle text-center uppercase tracking-widest mb-4">Join as</p>
+              <div className="grid grid-cols-2 gap-2">
+                {ROLES.map(({ key, label, desc, Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => handleJoinAs(key)}
+                    className="group flex flex-col items-start gap-2.5 p-4 bg-tm-surface-2
+                      border border-tm-border hover:border-tm-border-3 rounded-xl transition-all text-left
+                      hover:bg-tm-surface-3"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-tm-surface-3 border border-tm-border
+                      group-hover:border-tm-border-2 flex items-center justify-center flex-shrink-0 transition-all">
+                      <Icon className="w-4 h-4 text-tm-muted group-hover:text-tm-text transition-colors" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-tm-text">{label}</p>
+                      <p className="text-[10px] text-tm-subtle mt-0.5 leading-relaxed">{desc}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
-
-              <p className="text-[11px] text-tm-subtle text-center">
-                Controller has full timer and message control.
-                Viewer shows the live display only.
-              </p>
             </div>
           )}
 
-          {/* State: Not found */}
+          {/* Not found */}
           {joinState === 'not_found' && (
             <div className="text-center py-4">
               <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
@@ -190,13 +205,13 @@ export default function Join() {
               <p className="text-sm font-semibold text-tm-text mb-1">Room Not Found</p>
               <p className="text-xs text-tm-subtle mb-6 leading-relaxed">
                 {isEffectivelyOnline
-                  ? `Room "${roomId}" tidak ditemukan di server. Pastikan kode room benar.`
-                  : 'Tidak ada koneksi internet. Hubungkan ke internet dan coba lagi.'
+                  ? `Room "${roomId}" tidak ditemukan di server.`
+                  : 'Tidak ada koneksi internet. Hubungkan dan coba lagi.'
                 }
               </p>
               <div className="flex flex-col gap-2">
                 <button
-                  onClick={retry}
+                  onClick={() => window.location.reload()}
                   className="flex items-center justify-center gap-2 w-full py-2.5 bg-tm-surface-2 hover:bg-tm-surface-3
                     border border-tm-border hover:border-tm-border-2 rounded-xl text-sm text-tm-muted hover:text-tm-text transition-all"
                 >
@@ -214,7 +229,6 @@ export default function Join() {
           )}
         </div>
 
-        {/* Connection indicator */}
         <div className="flex items-center justify-center gap-1.5 mt-4">
           <div className={`w-1.5 h-1.5 rounded-full ${isEffectivelyOnline ? 'bg-timer-green' : 'bg-timer-yellow'}`} />
           <span className="text-xs text-tm-subtle">
